@@ -1,28 +1,55 @@
-const messageList = document.querySelector("ul");
-const messageForm = document.querySelector("form");
-const socket = new WebSocket(`ws://${window.location.host}`);
+const socket = io();
 
-socket.addEventListener("open", () => {
-  console.log("Connected to Server ✅");
-});
+const welcome = document.getElementById("welcome");
+const enterForm = welcome.querySelector("#enter");
+const room = document.querySelector("#room");
 
-socket.addEventListener("message", (message) => {
-  console.log("New message: ", message.data);
-});
+room.hidden = true;
 
-socket.addEventListener("close", () => {
-  console.log("Disconnected to Server ❌");
-});
+let roomName;
 
-// setTimeout(() => {
-//   socket.send("hello from the browser!");
-// }, 10000);
-
-function handleSubmit(event) {
+function handleEnterSubmit(event) {
   event.preventDefault();
-  const input = messageForm.querySelector("input");
-  socket.send(input.value);
+  const roomNameInput = enterForm.querySelector("#roomName");
+  const nicknameInput = enterForm.querySelector("#nickname");
+  roomName = roomNameInput.value;
+  socket.emit("enter_room", roomNameInput.value, nicknameInput.value, showRoom);
+}
+
+enterForm.addEventListener("submit", handleEnterSubmit);
+
+function addMessage(message) {
+  const ul = room.querySelector("ul");
+  const li = document.createElement("li");
+  li.innerText = message;
+  ul.appendChild(li);
+}
+
+function handleMessageSubmit(event) {
+  event.preventDefault();
+  const input = room.querySelector("#msg input");
+  const value = input.value;
+  socket.emit("new_message", input.value, roomName, () => {
+    addMessage(`You: ${value}`);
+  });
   input.value = "";
 }
 
-messageForm.addEventListener("submit", handleSubmit);
+function showRoom() {
+  welcome.hidden = true;
+  room.hidden = false;
+  const h3 = room.querySelector("h3");
+  h3.innerText = `Room ${roomName}`;
+  const msgForm = room.querySelector("#msg");
+  msgForm.addEventListener("submit", handleMessageSubmit);
+}
+
+socket.on("welcome", (user) => {
+  addMessage(`${user} arrived!`);
+});
+
+socket.on("bye", (left) => {
+  addMessage(`${left} left TT`);
+});
+
+socket.on("new_message", addMessage);
